@@ -3,8 +3,10 @@ package com.example.kipcareafya.ui.dashboard
 import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,28 +15,33 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kipcareafya.data.local.HealthDatabase
 import com.example.kipcareafya.data.local.dao.UserMetricWithType
+import com.example.kipcareafya.data.local.entity.MetricTypeEntity
+import com.example.kipcareafya.ui.dashboard.WaterIntakeCard
+import com.example.kipcareafya.ui.dashboard.DailyHealthScoreCard
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 // ─── ViewModel ───────────────────────────────────────────────
 
 data class DashboardUiState(
-    val username: String = "there",
     val totalRecords: Int = 0,
     val lastCheckDate: String = "--",
     val healthStatus: String = "Good",
     val healthStatusColor: Color = Color(0xFF43A047),
     val recentMetrics: List<UserMetricWithType> = emptyList(),
+    val metricTypes: List<MetricTypeEntity> = emptyList(),
+    val selectedCategory: String = "All",
     val isLoading: Boolean = true
 )
 
@@ -49,45 +56,47 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val userId = 1
 
     init {
-        loadDashboard()
+        viewModelScope.launch {
+            launch { loadMetricTypes() }
+            launch { loadRecentEntries() }
+        }
     }
 
-    private fun loadDashboard() {
+    private suspend fun loadMetricTypes() {
+        metricDao.getAllMetricTypes().collect { types ->
+            _uiState.update { it.copy(metricTypes = types) }
+        }
+    }
+
+    private suspend fun loadRecentEntries() {
         val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-        viewModelScope.launch {
-            metricDao.getMetricsWithType(userId, thirtyDaysAgo).collect { entries ->
-                val totalRecords = entries.size
-                val lastDate = entries.maxByOrNull { it.recordedAt }?.let {
-                    val sdf = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
-                    sdf.format(java.util.Date(it.recordedAt))
-                } ?: "--"
+        metricDao.getMetricsWithType(userId, thirtyDaysAgo).collect { entries ->
+            val lastDate = entries.maxByOrNull { it.recordedAt }?.let {
+                java.text.SimpleDateFormat(
+                    "MMM dd, yyyy",
+                    java.util.Locale.getDefault()
+                ).format(java.util.Date(it.recordedAt))
+            } ?: "--"
 
-                // Determine health status from latest metrics
-                val status = computeHealthStatus(entries)
-
-                _uiState.update {
-                    it.copy(
-                        totalRecords = totalRecords,
-                        lastCheckDate = lastDate,
-                        healthStatus = status.first,
-                        healthStatusColor = status.second,
-                        recentMetrics = entries.take(4),
-                        isLoading = false
-                    )
-                }
+            _uiState.update {
+                it.copy(
+                    totalRecords = entries.size,
+                    lastCheckDate = lastDate,
+                    recentMetrics = entries.take(4),
+                    isLoading = false
+                )
             }
         }
     }
 
-    private fun computeHealthStatus(entries: List<UserMetricWithType>): Pair<String, Color> {
-        if (entries.isEmpty()) return "No data yet" to Color(0xFF9E9E9E)
-        // Simple rule — if any recent metric looks abnormal flag it
-        val types = entries.map { it.name }.toSet()
-        val hasAbnormal = entries.any { entry ->
-            val type = db.userMetricDao() // just use entry directly
-            false // placeholder — we'll use the entries themselves
-        }
-        return "Good" to Color(0xFF43A047)
+    fun selectCategory(category: String) {
+        _uiState.update { it.copy(selectedCategory = category) }
+    }
+
+    fun getLatestForType(metricName: String): UserMetricWithType? {
+        return _uiState.value.recentMetrics
+            .filter { it.name == metricName }
+            .maxByOrNull { it.recordedAt }
     }
 }
 
@@ -102,9 +111,18 @@ fun DashboardScreen(
     onNavigateToGoals: () -> Unit,
     onNavigateToFirstAid: () -> Unit,
     onNavigateToTrends: () -> Unit,
-    dashboardViewModel: DashboardViewModel = viewModel()
+    vm: DashboardViewModel = viewModel()
 ) {
-    val uiState by dashboardViewModel.uiState.collectAsState()
+    val uiState by vm.uiState.collectAsState()
+
+    val categories = listOf("All") +
+            uiState.metricTypes.map { it.category }.distinct()
+
+    val filteredMetrics = if (uiState.selectedCategory == "All") {
+        uiState.metricTypes
+    } else {
+        uiState.metricTypes.filter { it.category == uiState.selectedCategory }
+    }
 
     Column(
         modifier = Modifier
@@ -112,54 +130,75 @@ fun DashboardScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
     ) {
-        // ── Top bar ──────────────────────────────────────────
+        // ── Header ────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
-                    text = "Hello, $username",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = "Monitor your health journey",
+                    text = "Hello 👋",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    text = username,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
-            Icon(
-                Icons.Default.AccountCircle,
-                contentDescription = "Profile",
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = "Profile",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
         }
+
+        // ── Big question ──────────────────────────────────────
+        Text(
+            text = "How is your health\ntoday?",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 36.sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Summary cards ─────────────────────────────────────
+        // ── Summary pills row ─────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            SummaryCard(
+            SummaryPill(
                 modifier = Modifier.weight(1f),
-                label = "Health Status",
+                label = "Status",
                 value = uiState.healthStatus,
                 valueColor = uiState.healthStatusColor
             )
-            SummaryCard(
+            SummaryPill(
                 modifier = Modifier.weight(1f),
-                label = "Last Check",
+                label = "Last check",
                 value = uiState.lastCheckDate
             )
-            SummaryCard(
+            SummaryPill(
                 modifier = Modifier.weight(1f),
                 label = "Records",
                 value = uiState.totalRecords.toString()
@@ -168,113 +207,245 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── Quick actions ─────────────────────────────────────
-        Text(
-            "Quick Actions",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
+        // ── Category filter chips ─────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            QuickActionButton(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.MonitorHeart,
-                label = "Track Metrics",
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                onClick = onNavigateToMetrics
-            )
-            QuickActionButton(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Search,
-                label = "Analyse Symptoms",
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                onClick = onNavigateToSymptoms
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionButton(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.MedicalServices,
-                label = "Medical History",
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                onClick = onNavigateToMedical
-            )
-            QuickActionButton(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Flag,
-                label = "My Goals",
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onNavigateToGoals
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionButton(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.HealthAndSafety,
-                label = "First Aid",
-                containerColor = Color(0xFFFFEBEE),
-                contentColor = Color(0xFFB71C1C),
-                onClick = onNavigateToFirstAid
-            )
-            QuickActionButton(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.ShowChart,
-                label = "Health Trends",
-                containerColor = Color(0xFFE8F5E9),
-                contentColor = Color(0xFF1B5E20),
-                onClick = onNavigateToTrends
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── Recent activity ───────────────────────────────────
-        if (uiState.recentMetrics.isNotEmpty()) {
-            Text(
-                "Recent Activity",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            uiState.recentMetrics.forEach { entry ->
-                RecentEntryRow(entry = entry)
-                Spacer(modifier = Modifier.height(8.dp))
+            categories.forEach { category ->
+                FilterChip(
+                    selected = uiState.selectedCategory == category,
+                    onClick = { vm.selectCategory(category) },
+                    label = { Text(category) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = Color.White
+                    )
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Horizontal metric tiles ───────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            filteredMetrics
+                .filter { it.name != "bmi" }
+                .forEach { metricType ->
+                    val latest = vm.getLatestForType(metricType.name)
+                    MetricTile(
+                        metricType = metricType,
+                        latestEntry = latest,
+                        onClick = onNavigateToMetrics
+                    )
+                }
+
+            // BMI tile
+            val bmiType = uiState.metricTypes.find { it.name == "bmi" }
+            val bmiEntry = vm.getLatestForType("bmi")
+            if (bmiType != null && bmiEntry != null) {
+                MetricTile(
+                    metricType = bmiType,
+                    latestEntry = bmiEntry,
+                    onClick = onNavigateToMetrics
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // ── Quick actions ─────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Quick Actions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            TextButton(onClick = onNavigateToMetrics) {
+                Text("View All")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 2×2 action grid
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.MonitorHeart,
+                    label = "Track Metrics",
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = onNavigateToMetrics
+                )
+                ActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Search,
+                    label = "Analyse Symptoms",
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = onNavigateToSymptoms
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.MedicalServices,
+                    label = "Medical History",
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    onClick = onNavigateToMedical
+                )
+                ActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Flag,
+                    label = "My Goals",
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onNavigateToGoals
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.HealthAndSafety,
+                    label = "First Aid",
+                    containerColor = Color(0xFFFFEBEE),
+                    contentColor = Color(0xFFB71C1C),
+                    onClick = onNavigateToFirstAid
+                )
+                ActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.ShowChart,
+                    label = "Health Trends",
+                    containerColor = Color(0xFFE8F5E9),
+                    contentColor = Color(0xFF1B5E20),
+                    onClick = onNavigateToTrends
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+// ── Daily health score ────────────────────────────────────
+        Text(
+            "Today's Score",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            DailyHealthScoreCard()
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+// ── Water intake ──────────────────────────────────────────
+        Text(
+            "Hydration",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            WaterIntakeCard()
+            Spacer(modifier = Modifier.height(20.dp))
+
+// ── Daily health score ────────────────────────────────────
+            Text(
+                "Today's Score",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                DailyHealthScoreCard()
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+// ── Water intake ──────────────────────────────────────────
+            Text(
+                "Hydration",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                WaterIntakeCard()
+            }
+        }
+
+        // ── Recent activity ───────────────────────────────────
+        if (uiState.recentMetrics.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Recent Activity",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                TextButton(onClick = onNavigateToMetrics) {
+                    Text("View All")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                uiState.recentMetrics.forEach { entry ->
+                    RecentEntryRow(entry = entry)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
-// ─── Small composables ────────────────────────────────────────
+// ─── Components ───────────────────────────────────────────────
 
 @Composable
-fun SummaryCard(
+fun SummaryPill(
     modifier: Modifier = Modifier,
     label: String,
     value: String,
@@ -286,17 +457,17 @@ fun SummaryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(3.dp)
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(10.dp)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = valueColor
             )
@@ -310,7 +481,70 @@ fun SummaryCard(
 }
 
 @Composable
-fun QuickActionButton(
+fun MetricTile(
+    metricType: MetricTypeEntity,
+    latestEntry: UserMetricWithType?,
+    onClick: () -> Unit
+) {
+    val iconData = metricIconAndColor(metricType.name)
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(3.dp),
+        modifier = Modifier
+            .width(110.dp)
+            .clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(iconData.second.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = iconData.first,
+                    contentDescription = metricType.displayName,
+                    tint = iconData.second,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Text(
+                text = metricType.displayName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            Text(
+                text = if (latestEntry != null)
+                    "${latestEntry.value}"
+                else "--",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (latestEntry != null) iconData.second
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (metricType.unit != null) {
+                Text(
+                    text = metricType.unit,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ActionCard(
     modifier: Modifier = Modifier,
     icon: ImageVector,
     label: String,
@@ -322,14 +556,14 @@ fun QuickActionButton(
         modifier = modifier
             .height(90.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -337,12 +571,12 @@ fun QuickActionButton(
                 imageVector = icon,
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(26.dp)
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = contentColor,
                 fontWeight = FontWeight.Medium
             )
@@ -352,11 +586,15 @@ fun QuickActionButton(
 
 @Composable
 fun RecentEntryRow(entry: UserMetricWithType) {
-    val sdf = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
-    val dateStr = sdf.format(java.util.Date(entry.recordedAt))
+    val dateStr = remember(entry.recordedAt) {
+        java.text.SimpleDateFormat(
+            "MMM dd, HH:mm",
+            java.util.Locale.getDefault()
+        ).format(java.util.Date(entry.recordedAt))
+    }
 
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -369,18 +607,39 @@ fun RecentEntryRow(entry: UserMetricWithType) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = entry.displayName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = dateStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val iconData = metricIconAndColor(entry.name)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(iconData.second.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = iconData.first,
+                        contentDescription = null,
+                        tint = iconData.second,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = entry.displayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = dateStr,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            .copy(alpha = 0.6f)
+                    )
+                }
             }
             Text(
                 text = "${entry.value} ${entry.unit ?: ""}",
@@ -389,5 +648,23 @@ fun RecentEntryRow(entry: UserMetricWithType) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+// ─── Helper — map metric name to icon + color ─────────────────
+
+fun metricIconAndColor(metricName: String): Pair<ImageVector, Color> {
+    return when (metricName) {
+        "weight"                   -> Icons.Default.FitnessCenter to Color(0xFF7B1FA2)
+        "height"                   -> Icons.Default.Height        to Color(0xFF1565C0)
+        "bmi"                      -> Icons.Default.Monitor       to Color(0xFF00695C)
+        "blood_glucose"            -> Icons.Default.Bloodtype     to Color(0xFFB71C1C)
+        "total_cholesterol"        -> Icons.Default.Science       to Color(0xFFE65100)
+        "hydration"                -> Icons.Default.WaterDrop     to Color(0xFF0277BD)
+        "blood_pressure_systolic",
+        "blood_pressure_diastolic" -> Icons.Default.Favorite      to Color(0xFFC62828)
+        "heart_rate"               -> Icons.Default.MonitorHeart  to Color(0xFFAD1457)
+        "oxygen_saturation"        -> Icons.Default.Air           to Color(0xFF00838F)
+        else                       -> Icons.Default.HealthAndSafety to Color(0xFF2E7D32)
     }
 }

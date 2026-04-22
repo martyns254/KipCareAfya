@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.kipcareafya"
-        minSdk = 28
+        minSdk = 30
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -58,6 +58,9 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended-android:1.7.8")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    implementation("com.patrykandpatrick.vico:compose-m3:1.15.0")
+    implementation("com.patrykandpatrick.vico:core:1.15.0")
+    implementation("androidx.health:health-services-client:1.1.0-alpha03")
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
 
