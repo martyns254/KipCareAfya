@@ -106,6 +106,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 fun DashboardScreen(
     username: String = "there",
     onNavigateToMetrics: () -> Unit,
+    onNavigateToMetricDetail: (String) -> Unit,
     onNavigateToSymptoms: () -> Unit,
     onNavigateToMedical: () -> Unit,
     onNavigateToGoals: () -> Unit,
@@ -245,7 +246,7 @@ fun DashboardScreen(
                     MetricTile(
                         metricType = metricType,
                         latestEntry = latest,
-                        onClick = onNavigateToMetrics
+                        onClick = { onNavigateToMetricDetail(metricType.name) }
                     )
                 }
 
@@ -256,7 +257,7 @@ fun DashboardScreen(
                 MetricTile(
                     metricType = bmiType,
                     latestEntry = bmiEntry,
-                    onClick = onNavigateToMetrics
+                    onClick =  {onNavigateToMetricDetail("bmi")}
                 )
             }
         }
@@ -343,36 +344,8 @@ fun DashboardScreen(
                     onClick = onNavigateToTrends
                 )
             }
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
 
-// ── Daily health score ────────────────────────────────────
-        Text(
-            "Today's Score",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-            DailyHealthScoreCard()
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-// ── Water intake ──────────────────────────────────────────
-        Text(
-            "Hydration",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-            WaterIntakeCard()
             Spacer(modifier = Modifier.height(20.dp))
 
 // ── Daily health score ────────────────────────────────────
@@ -387,8 +360,12 @@ fun DashboardScreen(
             Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                 DailyHealthScoreCard()
             }
+        }
 
-            Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+
+
+
 
 // ── Water intake ──────────────────────────────────────────
             Text(
@@ -440,7 +417,7 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
-}
+
 
 // ─── Components ───────────────────────────────────────────────
 

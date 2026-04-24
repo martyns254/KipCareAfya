@@ -59,6 +59,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("com.patrykandpatrick.vico:compose-m3:1.15.0")
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.7.8")
     implementation("com.patrykandpatrick.vico:core:1.15.0")
     implementation("androidx.health:health-services-client:1.1.0-alpha03")
     implementation(libs.androidx.room.ktx)

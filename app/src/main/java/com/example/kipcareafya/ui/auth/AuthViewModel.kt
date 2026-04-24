@@ -73,7 +73,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     passwordHash = hashPassword(password)
                 )
                 val id = userDao.insertUser(user).toInt()
-                prefs.saveUser(id, username)
+                prefs.saveUser(id, username,email)
                 _uiState.update {
                     it.copy(
                         isLoggedIn = true,
@@ -103,7 +103,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 _uiState.update { it.copy(error = "Incorrect password") }
                 return@launch
             }
-            prefs.saveUser(user.id, user.username)
+            prefs.saveUser(user.id, user.username, user.email)
             _uiState.update {
                 it.copy(
                     isLoggedIn = true,

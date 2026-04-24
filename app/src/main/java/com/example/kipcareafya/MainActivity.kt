@@ -31,6 +31,7 @@ import com.example.kipcareafya.ui.auth.RegisterScreen
 import com.example.kipcareafya.ui.dashboard.DashboardScreen
 import com.example.kipcareafya.ui.goals.GoalsScreen
 import com.example.kipcareafya.ui.medical.MedicalHistoryScreen
+import com.example.kipcareafya.ui.metrics.MetricDetailScreen
 import com.example.kipcareafya.ui.metrics.AddMetricScreen
 import com.example.kipcareafya.ui.metrics.MetricsScreen
 import com.example.kipcareafya.ui.navigation.BottomNavItem
@@ -38,6 +39,7 @@ import com.example.kipcareafya.ui.onboarding.OnboardingScreen
 import com.example.kipcareafya.ui.symptoms.SymptomAnalysisScreen
 import com.example.kipcareafya.ui.theme.KipCareAfyaTheme
 import com.example.kipcareafya.ui.trends.TrendsScreen
+import com.example.kipcareafya.ui.profile.ProfileScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,12 +174,15 @@ fun KipCareApp() {
             composable("dashboard") {
                 DashboardScreen(
                     username = authState.username,
-                    onNavigateToMetrics  = { navController.navigate("metrics") },
-                    onNavigateToSymptoms = { navController.navigate("symptoms") },
-                    onNavigateToMedical  = { navController.navigate("medical") },
-                    onNavigateToGoals    = { navController.navigate("goals") },
-                    onNavigateToFirstAid = { navController.navigate("firstaid") },
-                    onNavigateToTrends   = { navController.navigate("trends") }
+                    onNavigateToMetrics      = { navController.navigate("metrics") },
+                    onNavigateToMetricDetail = { metricName ->
+                        navController.navigate("metric_detail/$metricName")
+                    },
+                    onNavigateToSymptoms  = { navController.navigate("symptoms") },
+                    onNavigateToMedical   = { navController.navigate("medical") },
+                    onNavigateToGoals     = { navController.navigate("goals") },
+                    onNavigateToFirstAid  = { navController.navigate("firstaid") },
+                    onNavigateToTrends    = { navController.navigate("trends") }
                 )
             }
 
@@ -225,12 +230,23 @@ fun KipCareApp() {
 
             composable("profile") {
                 ProfileScreen(
-                    username = authState.username,
                     onLogout = {
                         authViewModel.logout()
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
+                    }
+
+                )
+            }
+            composable("metric_detail/{metricName}") { backStackEntry ->
+                val metricName = backStackEntry.arguments
+                    ?.getString("metricName") ?: return@composable
+                MetricDetailScreen(
+                    metricName = metricName,
+                    onBack = { navController.popBackStack() },
+                    onAddRecord = { metricId ->
+                        navController.navigate("add_metric/$metricId")
                     }
                 )
             }
