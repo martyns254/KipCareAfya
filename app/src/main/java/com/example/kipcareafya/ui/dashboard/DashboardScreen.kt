@@ -263,7 +263,7 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // ── Quick actions ─────────────────────────────────────
+        // ── Quick actions ───────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
