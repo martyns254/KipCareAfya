@@ -269,7 +269,7 @@ fun ProfileScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     color = MaterialTheme.colorScheme.outlineVariant
                 )
-                ProfileMenuItem(
+                 ProfileMenuItem (
                     icon = Icons.Default.Lock,
                     label = "Privacy policy",
                     subtitle = "How we handle your data",

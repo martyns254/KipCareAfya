@@ -27,8 +27,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kipcareafya.data.local.HealthDatabase
 import com.example.kipcareafya.data.local.dao.UserMetricWithType
 import com.example.kipcareafya.data.local.entity.MetricTypeEntity
-import com.example.kipcareafya.ui.dashboard.WaterIntakeCard
-import com.example.kipcareafya.ui.dashboard.DailyHealthScoreCard
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -132,7 +130,8 @@ fun DashboardScreen(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
-        // ── Header ────────────────────────────────────────────
+
+        // ── Header ────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,7 +180,7 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Summary pills row ─────────────────────────────────
+        // ── Summary pills row ──────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -250,21 +249,21 @@ fun DashboardScreen(
                     )
                 }
 
-            // BMI tile
+            // BMI tile — only show if we have a value
             val bmiType = uiState.metricTypes.find { it.name == "bmi" }
             val bmiEntry = vm.getLatestForType("bmi")
             if (bmiType != null && bmiEntry != null) {
                 MetricTile(
                     metricType = bmiType,
                     latestEntry = bmiEntry,
-                    onClick =  {onNavigateToMetricDetail("bmi")}
+                    onClick = { onNavigateToMetricDetail("bmi") }
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // ── Quick actions ─────────────────────────────────────
+        // ── Quick actions header ──────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -285,12 +284,13 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 2×2 action grid
+        // ── 2×3 action grid ───────────────────────────────────
         Column(
             modifier = Modifier.padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()) {
                 ActionCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.MonitorHeart,
@@ -308,7 +308,8 @@ fun DashboardScreen(
                     onClick = onNavigateToSymptoms
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()) {
                 ActionCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.MedicalServices,
@@ -326,7 +327,8 @@ fun DashboardScreen(
                     onClick = onNavigateToGoals
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()) {
                 ActionCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.HealthAndSafety,
@@ -344,47 +346,42 @@ fun DashboardScreen(
                     onClick = onNavigateToTrends
                 )
             }
-
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-// ── Daily health score ────────────────────────────────────
-            Text(
-                "Today's Score",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                DailyHealthScoreCard()
-            }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-
-
-
-// ── Water intake ──────────────────────────────────────────
-            Text(
-                "Hydration",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                WaterIntakeCard()
-            }
+        // ── Daily health score ────────────────────────────────
+        Text(
+            "Today's Score",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            DailyHealthScoreCard()
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Water intake ──────────────────────────────────────
+        Text(
+            "Hydration",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            WaterIntakeCard()
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // ── Recent activity ───────────────────────────────────
         if (uiState.recentMetrics.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(28.dp))
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -415,9 +412,11 @@ fun DashboardScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-    }
+        // Bottom padding so content clears the nav bar
+        Spacer(modifier = Modifier.height(32.dp))
 
+    } // end of main Column
+}
 
 // ─── Components ───────────────────────────────────────────────
 
@@ -501,9 +500,7 @@ fun MetricTile(
                 maxLines = 1
             )
             Text(
-                text = if (latestEntry != null)
-                    "${latestEntry.value}"
-                else "--",
+                text = if (latestEntry != null) "${latestEntry.value}" else "--",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (latestEntry != null) iconData.second
@@ -628,7 +625,7 @@ fun RecentEntryRow(entry: UserMetricWithType) {
     }
 }
 
-// ─── Helper — map metric name to icon + color ─────────────────
+// ─── Helper ───────────────────────────────────────────────────
 
 fun metricIconAndColor(metricName: String): Pair<ImageVector, Color> {
     return when (metricName) {
@@ -642,6 +639,6 @@ fun metricIconAndColor(metricName: String): Pair<ImageVector, Color> {
         "blood_pressure_diastolic" -> Icons.Default.Favorite      to Color(0xFFC62828)
         "heart_rate"               -> Icons.Default.MonitorHeart  to Color(0xFFAD1457)
         "oxygen_saturation"        -> Icons.Default.Air           to Color(0xFF00838F)
-        else                       -> Icons.Default.HealthAndSafety to Color(0xFF2E7D32)
+        else -> Icons.Default.HealthAndSafety to Color(0xFF2E7D32)
     }
 }

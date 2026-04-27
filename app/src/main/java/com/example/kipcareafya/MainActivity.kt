@@ -274,7 +274,8 @@ fun KipCareBottomBar(
     Box {
         NavigationBar(
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            tonalElevation = 8.dp,
+            modifier = Modifier.height(72.dp)
         ) {
             items.forEachIndexed { index, item ->
                 // Empty slot in the middle for the FAB gap
@@ -284,7 +285,7 @@ fun KipCareBottomBar(
                         onClick = {},
                         icon = {},
                         enabled = false,
-                        modifier = Modifier.width(56.dp)
+                        modifier = Modifier.width(64.dp)
                     )
                 }
                 val selected = currentDestination?.hierarchy?.any {
@@ -313,13 +314,13 @@ fun KipCareBottomBar(
             }
         }
 
-        // Centre FAB floating above the bar
+        // Center FAB floating above the bar
         FloatingActionButton(
             onClick = onFabClick,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-20).dp)
-                .size(56.dp),
+                .offset(y = (-28).dp)
+                .size(52.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             shape = CircleShape,
             elevation = FloatingActionButtonDefaults.elevation(6.dp)
