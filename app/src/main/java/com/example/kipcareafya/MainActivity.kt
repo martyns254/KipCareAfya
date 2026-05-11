@@ -287,30 +287,31 @@ fun KipCareBottomBar(
                         enabled = false,
                         modifier = Modifier.width(64.dp)
                     )
-                }
-                val selected = currentDestination?.hierarchy?.any {
-                    it.route == item.route
-                } == true
-                NavigationBarItem(
-                    selected = selected,
-                    onClick = { onItemClick(item) },
-                    icon = {
-                        Icon(item.icon, contentDescription = item.label)
-                    },
-                    label = {
-                        Text(
-                            item.label,
-                            style = MaterialTheme.typography.labelSmall
+                } else {
+                    val selected = currentDestination?.hierarchy?.any {
+                        it.route == item.route
+                    } == true
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = { onItemClick(item) },
+                        icon = {
+                            Icon(item.icon, contentDescription = item.label)
+                        },
+                        label = {
+                            Text(
+                                item.label,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
                         )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
-                )
+                }
             }
         }
 
@@ -319,7 +320,7 @@ fun KipCareBottomBar(
             onClick = onFabClick,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-28).dp)
+                .offset(y = (-26).dp)
                 .size(52.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             shape = CircleShape,

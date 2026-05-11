@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.compose.google.fonts)
     implementation(libs.androidx.room.runtime)
     implementation("androidx.compose.material:material-icons-extended-android:1.7.8")
     implementation("androidx.datastore:datastore-preferences:1.1.1")

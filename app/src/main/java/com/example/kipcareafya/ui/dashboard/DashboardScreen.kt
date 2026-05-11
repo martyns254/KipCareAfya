@@ -348,7 +348,7 @@ fun DashboardScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // ── Daily health score ────────────────────────────────
         Text(
@@ -378,7 +378,7 @@ fun DashboardScreen(
             WaterIntakeCard()
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // ── Recent activity ───────────────────────────────────
         if (uiState.recentMetrics.isNotEmpty()) {
@@ -413,7 +413,7 @@ fun DashboardScreen(
         }
 
         // Bottom padding so content clears the nav bar
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(80.dp))
 
     } // end of main Column
 }
